@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1 Jaar Gratis - Score Tracker</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Lucide React icons as SVG components
+        const Users = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        );
+
+        const Trophy = () => (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                <path d="M4 22h16"/>
+                <path d="M10 14.66V17c0 .55.47.98.97 1.21C11.25 18.48 11.61 18.5 12 18.5s.75-.02 1.03-.29c.5-.23.97-.66.97-1.21v-2.34"/>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+            </svg>
+        );
+
+        const Target = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="6"/>
+                <circle cx="12" cy="12" r="2"/>
+            </svg>
+        );
+
+        const Crown = () => (
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11.562 3.266a.5.5 0 0 1 .876 0L14.392 8.1a1 1 0 0 0 1.516.294L18.526 6.5a.5.5 0 0 1 .765.64L17.7 15.75A1 1 0 0 1 16.71 16.5H7.29a1 1 0 0 1-.99-.75L4.71 7.14a.5.5 0 0 1 .765-.64l2.618 1.894a1 1 0 0 0 1.516-.294L11.562 3.266z"/>
+            </svg>
+        );
+
+        const RotateCcw = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+            </svg>
+        );
+
+        const EenJaarGratisApp = () => {
+            const [gameState, setGameState] = useState('setup');
+            const [players, setPlayers] = useState([]);
+            const [newPlayerName, setNewPlayerName] = useState('');
+            const [currentRound, setCurrentRound] = useState(1);
+            const [bottomThree, setBottomThree] = useState([]);
+            const [votes, setVotes] = useState({});
+            const [roundWinner, setRoundWinner] = useState(null);
+            const [selectedWinners, setSelectedWinners] = useState([]);
+            const [gameHistory, setGameHistory] = useState([]);
+
+            const addPlayer = () => {
+                if (newPlayerName.trim() && !players.find(p => p.name === newPlayerName.trim())) {
+                    const newPlayer = {
+                        id: Date.now(),
+                        name: newPlayerName.trim(),
+                        score: 0
+                    };
+                    setPlayers([...players, newPlayer]);
+                    setNewPlayerName('');
+                }
+            };
+
+            const removePlayer = (id) => {
+                setPlayers(players.filter(p => p.id !== id));
+            };
+
+            const startNewRound = () => {
+                if (players.length < 4) {
+                    alert('Je hebt minstens 4 spelers nodig om te spelen!');
+                    return;
+                }
+
+                const sortedPlayers = [...players].sort((a, b) => a.score - b.score);
+                const bottom3 = sortedPlayers.slice(0, 3);
+                
+                setBottomThree(bottom3);
+                setVotes({});
+                setRoundWinner(null);
+                setSelectedWinners([]);
+                setGameState('voting');
+            };
+
+            const voteForWinner = (voterId, winnerId) => {
+                setVotes({
+                    ...votes,
+                    [voterId]: winnerId
+                });
+            };
+
+            const toggleWinnerSelection = (playerId) => {
+                setSelectedWinners(prev => 
+                    prev.includes(playerId) 
+                        ? prev.filter(id => id !== playerId)
+                        : [...prev, playerId]
+                );
+            };
+
+            const finishRound = (winnerIds) => {
+                const winners = bottomThree.filter(p => winnerIds.includes(p.id));
+                setRoundWinner(winners);
+
+                let updatedPlayers = [...players];
+
+                winners.forEach(winner => {
+                    const correctVoters = Object.entries(votes)
+                        .filter(([voterId, vote]) => vote === winner.id)
+                        .map(([voterId]) => parseInt(voterId));
+
+                    const totalRecipients = correctVoters.length + 1;
+                    const pointsPerPerson = Math.round(100 / totalRecipients);
+
+                    updatedPlayers = updatedPlayers.map(player => {
+                        if (player.id === winner.id) {
+                            return { ...player, score: player.score + pointsPerPerson };
+                        } else if (correctVoters.includes(player.id)) {
+                            return { ...player, score: player.score + pointsPerPerson };
+                        }
+                        return player;
+                    });
+                });
+
+                setPlayers(updatedPlayers);
+
+                const roundResult = {
+                    round: currentRound,
+                    bottomThree: bottomThree.map(p => p.name),
+                    winners: winners.map(w => w.name),
+                    allCorrectVoters: winners.map(winner => {
+                        const correctVoters = Object.entries(votes)
+                            .filter(([voterId, vote]) => vote === winner.id)
+                            .map(([voterId]) => players.find(p => p.id === parseInt(voterId))?.name);
+                        return { winner: winner.name, voters: correctVoters };
+                    })
+                };
+
+                setGameHistory([...gameHistory, roundResult]);
+                setGameState('results');
+            };
+
+            const nextRound = () => {
+                setCurrentRound(currentRound + 1);
+                setGameState('voting');
+                startNewRound();
+            };
+
+            const resetGame = () => {
+                setGameState('setup');
+                setPlayers(players.map(p => ({ ...p, score: 0 })));
+                setCurrentRound(1);
+                setGameHistory([]);
+                setVotes({});
+                setRoundWinner(null);
+                setSelectedWinners([]);
+            };
+
+            const getSortedPlayers = () => {
+                return [...players].sort((a, b) => b.score - a.score);
+            };
+
+            const getVotingPlayers = () => {
+                const bottomIds = bottomThree.map(p => p.id);
+                return players.filter(p => !bottomIds.includes(p.id));
+            };
+
+            if (gameState === 'setup') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-6">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="text-center mb-8">
+                                <h1 className="text-4xl font-bold text-white mb-4 flex items-center justify-center gap-3">
+                                    <Trophy />
+                                    1 Jaar Gratis
+                                </h1>
+                                <p className="text-blue-200 text-lg">Score Tracker App</p>
+                            </div>
+
+                            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 mb-6">
+                                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                                    <Users />
+                                    Spelers Toevoegen
+                                </h2>
+                                
+                                <div className="flex gap-4 mb-6">
+                                    <input
+                                        type="text"
+                                        placeholder="Naam van speler..."
+                                        value={newPlayerName}
+                                        onChange={(e) => setNewPlayerName(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
+                                        className="flex-1 px-4 py-2 rounded-lg bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    />
+                                    <button
+                                        onClick={addPlayer}
+                                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
+                                    >
+                                        Toevoegen
+                                    </button>
+                                </div>
+
+                                {players.length > 0 && (
+                                    <div className="space-y-2 mb-6">
+                                        {players.map(player => (
+                                            <div key={player.id} className="flex items-center justify-between bg-white/10 rounded-lg p-3">
+                                                <span className="text-white font-medium">{player.name}</span>
+                                                <button
+                                                    onClick={() => removePlayer(player.id)}
+                                                    className="text-red-400 hover:text-red-300 px-2 py-1 rounded"
+                                                >
+                                                    Verwijderen
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={startNewRound}
+                                    disabled={players.length < 4}
+                                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-bold text-lg transition-colors"
+                                >
+                                    {players.length < 4 ? `${4 - players.length} spelers nodig` : 'Start Spel!'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'voting') {
+                const votingPlayers = getVotingPlayers();
+                
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-6">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="text-center mb-8">
+                                <h1 className="text-3xl font-bold text-white mb-2">Ronde {currentRound}</h1>
+                                <p className="text-blue-200">Stem op de winnaar van de uitdaging!</p>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="bg-red-500/20 backdrop-blur-lg rounded-2xl p-6">
+                                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                        <Target />
+                                        Uitdagers (Laagste Scores)
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {bottomThree.map(player => (
+                                            <div key={player.id} className="bg-red-400/20 rounded-lg p-3">
+                                                <div className="text-white font-semibold">{player.name}</div>
+                                                <div className="text-red-200 text-sm">{player.score} punten</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="bg-green-500/20 backdrop-blur-lg rounded-2xl p-6">
+                                    <h2 className="text-xl font-bold text-white mb-4">Stem op de Winnaar</h2>
+                                    <div className="space-y-4">
+                                        {votingPlayers.map(voter => (
+                                            <div key={voter.id} className="bg-white/10 rounded-lg p-4">
+                                                <div className="text-white font-medium mb-2">{voter.name}:</div>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {bottomThree.map(candidate => (
+                                                        <button
+                                                            key={candidate.id}
+                                                            onClick={() => voteForWinner(voter.id, candidate.id)}
+                                                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                                                votes[voter.id] === candidate.id
+                                                                    ? 'bg-blue-600 text-white'
+                                                                    : 'bg-white/20 text-white hover:bg-white/30'
+                                                            }`}
+                                                        >
+                                                            {candidate.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 bg-yellow-500/20 backdrop-blur-lg rounded-2xl p-6">
+                                <h2 className="text-xl font-bold text-white mb-4">Wie Won de Uitdaging?</h2>
+                                <p className="text-yellow-200 mb-4 text-sm">Klik op alle winnaars (er kunnen meerdere zijn!)</p>
+                                
+                                <div className="grid grid-cols-3 gap-4 mb-6">
+                                    {bottomThree.map(player => (
+                                        <button
+                                            key={player.id}
+                                            onClick={() => toggleWinnerSelection(player.id)}
+                                            className={`font-bold py-4 px-6 rounded-lg transition-colors ${
+                                                selectedWinners.includes(player.id)
+                                                    ? 'bg-green-600 text-white border-2 border-green-400'
+                                                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                                            }`}
+                                        >
+                                            {selectedWinners.includes(player.id) ? '✅ ' : ''}{player.name}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {selectedWinners.length > 0 && (
+                                    <button
+                                        onClick={() => finishRound(selectedWinners)}
+                                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                                    >
+                                        Bevestig {selectedWinners.length === 1 ? 'Winnaar' : `${selectedWinners.length} Winnaars`}
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-2xl p-6">
+                                <h2 className="text-xl font-bold text-white mb-4">Huidige Ranglijst</h2>
+                                <div className="space-y-2">
+                                    {getSortedPlayers().map((player, index) => (
+                                        <div key={player.id} className="flex items-center justify-between bg-white/10 rounded-lg p-3">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-white/70 font-bold">#{index + 1}</span>
+                                                <span className="text-white font-medium">{player.name}</span>
+                                            </div>
+                                            <span className="text-yellow-400 font-bold">{player.score} pts</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'results') {
+                const lastRound = gameHistory[gameHistory.length - 1];
+                
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 p-6">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="text-center mb-8">
+                                <h1 className="text-3xl font-bold text-white mb-2">Ronde {currentRound} Resultaten</h1>
+                                <Crown />
+                            </div>
+
+                            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 mb-6">
+                                <div className="text-center mb-6">
+                                    <h2 className="text-2xl font-bold text-yellow-400 mb-2">
+                                        🏆 Winnaar{Array.isArray(roundWinner) && roundWinner.length > 1 ? 's' : ''}: {
+                                            Array.isArray(roundWinner) 
+                                                ? roundWinner.map(w => w.name).join(' & ')
+                                                : roundWinner?.name
+                                        }!
+                                    </h2>
+                                    <p className="text-white">Elk {Array.isArray(roundWinner) && roundWinner.length > 1 ? 'hebben' : 'heeft'} punten gewonnen</p>
+                                </div>
+
+                                {lastRound?.allCorrectVoters && (
+                                    <div className="mb-6 space-y-3">
+                                        <h3 className="text-lg font-bold text-green-400 mb-2">✅ Correcte Voorspellers per Winnaar:</h3>
+                                        {lastRound.allCorrectVoters.map((group, index) => (
+                                            <div key={index} className="bg-green-500/20 rounded-lg p-3">
+                                                <div className="font-semibold text-green-300 mb-1">
+                                                    Stemden op {group.winner}:
+                                                </div>
+                                                {group.voters.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {group.voters.map(voter => (
+                                                            <span key={voter} className="bg-green-600 text-white px-2 py-1 rounded text-sm">
+                                                                {voter}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-green-200 text-sm">Niemand heeft op deze winnaar gestemd</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="mb-6">
+                                    <h3 className="text-lg font-bold text-white mb-3">Nieuwe Ranglijst:</h3>
+                                    <div className="space-y-2">
+                                        {getSortedPlayers().map((player, index) => (
+                                            <div key={player.id} className={`flex items-center justify-between rounded-lg p-3 ${
+                                                index === 0 ? 'bg-yellow-500/20 border border-yellow-400' : 'bg-white/10'
+                                            }`}>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`font-bold ${index === 0 ? 'text-yellow-400' : 'text-white/70'}`}>
+                                                        #{index + 1}
+                                                    </span>
+                                                    <span className="text-white font-medium">{player.name}</span>
+                                                </div>
+                                                <span className="text-yellow-400 font-bold">{player.score} pts</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 justify-center">
+                                    <button
+                                        onClick={nextRound}
+                                        className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors"
+                                    >
+                                        Volgende Ronde
+                                    </button>
+                                    <button
+                                        onClick={resetGame}
+                                        className="px-8 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                                    >
+                                        <RotateCcw />
+                                        Nieuw Spel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return null;
+        };
+
+        ReactDOM.render(<EenJaarGratisApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
